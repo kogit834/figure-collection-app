@@ -60,8 +60,7 @@ export function SnsImport({ onExtract }: SnsImportProps) {
       const base64 = await fileToBase64(file)
       const response = await client.messages.create({
         model: 'claude-opus-4-8',
-        max_tokens: 512,
-        thinking: { type: 'adaptive' },
+        max_tokens: 1024,
         messages: [
           {
             role: 'user',
@@ -103,8 +102,7 @@ export function SnsImport({ onExtract }: SnsImportProps) {
       }
       const response = await client.messages.create({
         model: 'claude-opus-4-8',
-        max_tokens: 512,
-        thinking: { type: 'adaptive' },
+        max_tokens: 1024,
         messages: [
           {
             role: 'user',
