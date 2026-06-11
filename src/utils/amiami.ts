@@ -8,9 +8,18 @@ export async function searchAmiAmiFigures(
 ): Promise<AmiAmiItem[]> {
   const params = new URLSearchParams({ keyword })
   const res = await fetch(`${WORKER_URL}?${params}`, { signal })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const json = await res.json()
-  return (json.items ?? []) as AmiAmiItem[]
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`サーバーエラー (${res.status})${text ? `: ${text.slice(0, 200)}` : ''}`)
+  }
+  const json = (await res.json()) as Record<string, unknown>
+  // Support nested format: { RValue: { items: [] } } or flat { items: [] }
+  const nested = json.RValue as Record<string, unknown> | undefined
+  const items = (json.items ?? nested?.items ?? json.results ?? []) as AmiAmiItem[]
+  if (!Array.isArray(items)) {
+    throw new Error(`予期しないレスポンス形式: ${JSON.stringify(json).slice(0, 300)}`)
+  }
+  return items
 }
 
 /** AmiAmiの日付文字列 ("2024-03" や "2024-03下旬") → "YYYY-MM-01" */

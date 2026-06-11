@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import type { AmiAmiItem, FavoriteWork, FavoriteSeries, Figure, PurchasePlan } from '../types'
 import { newId, today } from '../utils'
 import { parseAmiAmiDate, resolveThumbUrl, searchAmiAmiFigures } from '../utils/amiami'
-import { EmptyState } from '../components/EmptyState'
 
 interface SearchPageProps {
   works: FavoriteWork[]
@@ -16,8 +15,59 @@ interface SearchPageProps {
 type SearchState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'done'; items: AmiAmiItem[] }
-  | { status: 'error'; message: string }
+  | { status: 'done'; items: AmiAmiItem[]; keyword: string }
+  | { status: 'error'; message: string; keyword: string }
+
+const EXTERNAL_SOURCES = [
+  {
+    id: 'gsc',
+    name: 'グッドスマイルカンパニー',
+    sub: 'ねんどろいど・figma・スケールフィギュア',
+    color: 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+    url: (q: string) =>
+      `https://www.goodsmile.info/ja/products/search?q=${encodeURIComponent(q)}`,
+  },
+  {
+    id: 'kuji',
+    name: '一番くじ',
+    sub: 'バンダイスピリッツのくじ景品',
+    color: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+    url: (q: string) =>
+      `https://goods.bn-ent.net/search/?q=${encodeURIComponent(q)}`,
+  },
+  {
+    id: 'tamashii',
+    name: 'TAMASHII NATIONS',
+    sub: 'S.H.Figuarts・魂SPEC等',
+    color: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+    url: (q: string) =>
+      `https://tamashii.jp/search/?search_keyword=${encodeURIComponent(q)}`,
+  },
+  {
+    id: 'pbandai',
+    name: 'プレミアムバンダイ',
+    sub: 'ガンプラ・限定フィギュア',
+    color: 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+    url: (q: string) =>
+      `https://p-bandai.jp/search?q=${encodeURIComponent(q)}`,
+  },
+  {
+    id: 'kotobukiya',
+    name: 'コトブキヤ',
+    sub: 'プラモデル・美少女フィギュア',
+    color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+    url: (q: string) =>
+      `https://www.kotobukiya.co.jp/product-search/?search_keyword=${encodeURIComponent(q)}`,
+  },
+  {
+    id: 'amiami',
+    name: 'AmiAmi（直接）',
+    sub: '上記で見つからない場合はAmiAmiサイトへ',
+    color: 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    url: (q: string) =>
+      `https://www.amiami.jp/top/search/list/?s_keywords=${encodeURIComponent(q)}&s_st_list_newitem_available=1`,
+  },
+]
 
 export function SearchPage({
   works,
@@ -32,13 +82,15 @@ export function SearchPage({
   const [searchState, setSearchState] = useState<SearchState>({ status: 'idle' })
   const abortRef = useRef<AbortController | null>(null)
 
+  const currentKeyword = [workInput.trim(), seriesInput.trim()].filter(Boolean).join(' ')
+
   const handleSearch = async () => {
-    const keyword = [workInput.trim(), seriesInput.trim()].filter(Boolean).join(' ')
-    if (!keyword) return
+    if (!currentKeyword) return
 
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    const keyword = currentKeyword
 
     setSearchState({ status: 'loading' })
 
@@ -49,12 +101,16 @@ export function SearchPage({
         if (!b.releasedate) return -1
         return b.releasedate.localeCompare(a.releasedate)
       })
-      setSearchState({ status: 'done', items: sorted })
+      setSearchState({ status: 'done', items: sorted, keyword })
     } catch (err) {
-      if ((err as Error).name === 'AbortError') return
+      if ((err as Error).name === 'AbortError') {
+        setSearchState({ status: 'idle' })
+        return
+      }
       setSearchState({
         status: 'error',
-        message: 'フィギュア情報の取得に失敗しました。ネットワークを確認してください。',
+        message: (err as Error).message || 'フィギュア情報の取得に失敗しました',
+        keyword,
       })
     }
   }
@@ -100,10 +156,16 @@ export function SearchPage({
   const isFigureAdded = (item: AmiAmiItem) => figures.some((f) => f.name === item.gname)
   const isPlanAdded = (item: AmiAmiItem) => plans.some((p) => p.name === item.gname)
 
+  const searchKeywordForLinks =
+    searchState.status === 'done' || searchState.status === 'error'
+      ? searchState.keyword
+      : currentKeyword
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h1 className="text-xl font-bold">商品検索</h1>
 
+      {/* 検索フォーム */}
       <div className="card space-y-2 p-3">
         <div>
           <label className="label" htmlFor="search-work">作品名</label>
@@ -151,12 +213,12 @@ export function SearchPage({
           type="button"
           className="btn-primary w-full"
           onClick={handleSearch}
-          disabled={searchState.status === 'loading'}
+          disabled={searchState.status === 'loading' || !currentKeyword}
         >
           {searchState.status === 'loading' ? (
             <span className="flex items-center justify-center gap-2">
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              検索中…
+              AmiAmi を検索中…
             </span>
           ) : (
             '検索'
@@ -164,31 +226,45 @@ export function SearchPage({
         </button>
       </div>
 
-      {searchState.status === 'idle' && (
-        <EmptyState
-          message="作品名やシリーズ名で検索"
-          hint="設定から好きな作品・シリーズを登録すると入力候補が表示されます"
-        />
+      {/* AmiAmi 検索結果 */}
+      {searchState.status === 'loading' && (
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500 dark:text-slate-400">
+          <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          AmiAmi で検索中…
+        </div>
       )}
 
       {searchState.status === 'error' && (
-        <div className="card p-3 text-sm text-rose-600 dark:text-rose-400">
-          {searchState.message}
+        <div className="card space-y-1 p-3">
+          <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
+            AmiAmi の検索に失敗しました
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 break-all">
+            {searchState.message}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            下の「他のサイトで探す」から直接検索してください。
+          </p>
         </div>
       )}
 
       {searchState.status === 'done' && searchState.items.length === 0 && (
-        <EmptyState
-          message="商品が見つかりませんでした"
-          hint="別のキーワードで試してみてください"
-        />
+        <div className="card p-3 text-sm text-slate-500 dark:text-slate-400">
+          AmiAmi では「{searchState.keyword}」の商品が見つかりませんでした。
+          下の「他のサイトで探す」もお試しください。
+        </div>
       )}
 
       {searchState.status === 'done' && searchState.items.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {searchState.items.length} 件見つかりました（AmiAmi · 発売日新しい順）
-          </p>
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+              AmiAmi
+            </span>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {searchState.items.length} 件（発売日新しい順）
+            </p>
+          </div>
           <ul className="space-y-2">
             {searchState.items.map((item) => {
               const figAdded = isFigureAdded(item)
@@ -256,6 +332,46 @@ export function SearchPage({
               )
             })}
           </ul>
+        </section>
+      )}
+
+      {/* 他のサイトで探す */}
+      {(searchState.status !== 'idle' || currentKeyword) && (
+        <section className="space-y-2">
+          <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+            他のサイトで探す
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            タップすると各サイトの検索結果が開きます
+          </p>
+          <ul className="space-y-2">
+            {EXTERNAL_SOURCES.map((source) => (
+              <li key={source.id}>
+                <a
+                  href={source.url(searchKeywordForLinks || '　')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center justify-between rounded-xl p-3 transition-opacity active:opacity-70 ${source.color}`}
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">{source.name}</p>
+                    <p className="text-xs opacity-75">{source.sub}</p>
+                  </div>
+                  <svg className="h-4 w-4 shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {searchState.status === 'idle' && !currentKeyword && (
+        <div className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="text-4xl mb-3">🔍</p>
+          <p className="font-medium text-slate-600 dark:text-slate-300">作品名やシリーズ名で検索</p>
+          <p className="mt-1 text-xs">設定から好きな作品・シリーズを登録すると入力候補が表示されます</p>
         </div>
       )}
     </div>
