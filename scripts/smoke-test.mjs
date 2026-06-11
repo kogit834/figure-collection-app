@@ -60,7 +60,7 @@ if (!(await page.getByText('ねんどろいど テスト子').isVisible()))
 
 // 5. PWA: manifest と Service Worker の確認
 const manifest = await page.evaluate(async () => {
-  const res = await fetch('/manifest.webmanifest')
+  const res = await fetch('manifest.webmanifest')
   return res.ok ? res.json() : null
 })
 if (!manifest || manifest.name !== 'フィギュアコレクション管理')
