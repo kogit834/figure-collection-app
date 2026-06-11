@@ -69,6 +69,35 @@ export const CONDITION_OPTIONS = [
   'ジャンク',
 ] as const
 
+/** 好きな作品ジャンル */
+export type WorkType = 'anime' | 'manga' | 'game' | 'other'
+
+export const WORK_TYPE_LABELS: Record<WorkType, string> = {
+  anime: 'アニメ',
+  manga: '漫画',
+  game: 'ゲーム',
+  other: 'その他',
+}
+
+/** 好きな作品（フィギュア検索のベースになる） */
+export interface FavoriteWork {
+  id: string
+  title: string
+  type: WorkType
+  createdAt: string
+}
+
+/** AmiAmi API のレスポンス商品アイテム */
+export interface AmiAmiItem {
+  gcode: string
+  gname: string
+  maker_name?: string
+  sname?: string
+  releasedate?: string
+  min_price?: number
+  thumb_url?: string
+}
+
 /** フリマ価格調査メモ */
 export interface PriceRecord {
   id: string
