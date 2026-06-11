@@ -77,8 +77,9 @@ export function SnsImport({ onExtract }: SnsImportProps) {
       const textBlock = response.content.find((b) => b.type === 'text')
       if (!textBlock || textBlock.type !== 'text') throw new Error('No text')
       applyExtracted(parseResponse(textBlock.text))
-    } catch {
-      setError('読み取れませんでした。手入力してください')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(`読み取れませんでした: ${msg}`)
     } finally {
       setLoading(false)
     }
@@ -113,8 +114,9 @@ export function SnsImport({ onExtract }: SnsImportProps) {
       const textBlock = response.content.find((b) => b.type === 'text')
       if (!textBlock || textBlock.type !== 'text') throw new Error('No text')
       applyExtracted(parseResponse(textBlock.text))
-    } catch {
-      setError('読み取れませんでした。手入力してください')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(`読み取れませんでした: ${msg}`)
     } finally {
       setLoading(false)
     }
