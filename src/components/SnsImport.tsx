@@ -32,7 +32,7 @@ export function SnsImport({ onExtract }: SnsImportProps) {
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
+  const apiKey = (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined)?.trim()
   if (!apiKey) return null
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
