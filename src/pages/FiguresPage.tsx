@@ -5,6 +5,7 @@ import { daysUntil, formatDate, formatYen, newId, today } from '../utils'
 import { Modal } from '../components/Modal'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState } from '../components/EmptyState'
+import { SnsImport } from '../components/SnsImport'
 
 const STATUS_COLORS: Record<FigureStatus, 'blue' | 'amber' | 'green'> = {
   upcoming: 'blue',
@@ -231,6 +232,20 @@ export function FiguresPage({ figures, setFigures }: FiguresPageProps) {
         onClose={() => setModalOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-3">
+          {!editingId && (
+            <SnsImport
+              onExtract={(data) => {
+                setForm((prev) => ({
+                  ...prev,
+                  ...(data.name ? { name: data.name } : {}),
+                  ...(data.series ? { series: data.series } : {}),
+                  ...(data.releaseDate ? { releaseDate: data.releaseDate } : {}),
+                  ...(data.price ? { price: data.price } : {}),
+                  ...(data.manufacturer ? { manufacturer: data.manufacturer } : {}),
+                }))
+              }}
+            />
+          )}
           <div>
             <label className="label" htmlFor="fig-name">商品名 *</label>
             <input
