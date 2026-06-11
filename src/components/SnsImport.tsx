@@ -7,6 +7,8 @@ export interface ExtractedFigureData {
   releaseDate?: string
   price?: string
   manufacturer?: string
+  scale?: string
+  imageUrl?: string
 }
 
 interface SnsImportProps {
@@ -22,6 +24,8 @@ const EXTRACT_PROMPT = `以下の画像（またはテキスト）はフィギ�
   "releaseDate": "YYYY-MM または YYYY-MM-DD",
   "price": 数値（円、数値のみ、文字列不可）,
   "seriesName": "作品・シリーズ名",
+  "makerName": "メーカー・ブランド名（例: グッドスマイルカンパニー）",
+  "scale": "スケール（例: 1/7、1/8、ノンスケール）",
   "memo": "限定・受注生産などの補足"
 }
 JSONのみ返してください。説明文は不要です。`
@@ -37,12 +41,15 @@ export function SnsImport({ onExtract }: SnsImportProps) {
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
 
-  const applyExtracted = (raw: Record<string, unknown>) => {
+  const applyExtracted = (raw: Record<string, unknown>, ogImageUrl?: string) => {
     const data: ExtractedFigureData = {}
     if (raw.productName) data.name = String(raw.productName)
     if (raw.seriesName) data.series = String(raw.seriesName)
     if (raw.releaseDate) data.releaseDate = normalizeDate(String(raw.releaseDate))
     if (raw.price != null && raw.price !== 'null') data.price = String(raw.price)
+    if (raw.makerName) data.manufacturer = String(raw.makerName)
+    if (raw.scale) data.scale = String(raw.scale)
+    if (ogImageUrl) data.imageUrl = ogImageUrl
     onExtract(data)
     setError(null)
   }
@@ -59,7 +66,7 @@ export function SnsImport({ onExtract }: SnsImportProps) {
     try {
       const base64 = await fileToBase64(file)
       const response = await client.messages.create({
-        model: 'claude-opus-4-8',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
         messages: [
           {
@@ -91,18 +98,20 @@ export function SnsImport({ onExtract }: SnsImportProps) {
     setError(null)
     try {
       let pageText: string
+      let ogImageUrl = ''
       try {
         const res = await fetch(url)
         if (!res.ok) throw new Error('fetch failed')
         const html = await res.text()
         pageText = extractTextFromHtml(html)
+        ogImageUrl = extractOgImage(html)
       } catch {
         setError('URLの取得に失敗しました。画像でお試しください')
         setLoading(false)
         return
       }
       const response = await client.messages.create({
-        model: 'claude-opus-4-8',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
         messages: [
           {
@@ -113,7 +122,7 @@ export function SnsImport({ onExtract }: SnsImportProps) {
       })
       const textBlock = response.content.find((b) => b.type === 'text')
       if (!textBlock || textBlock.type !== 'text') throw new Error('No text')
-      applyExtracted(parseResponse(textBlock.text))
+      applyExtracted(parseResponse(textBlock.text), ogImageUrl)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(`読み取れませんでした: ${msg}`)
@@ -125,7 +134,7 @@ export function SnsImport({ onExtract }: SnsImportProps) {
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-800 dark:bg-indigo-950/40">
       <p className="mb-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-        📎 SNS投稿から取り込む
+        📎 SNS・商品ページから自動入力
       </p>
 
       <div className="space-y-2">
@@ -159,7 +168,7 @@ export function SnsImport({ onExtract }: SnsImportProps) {
           <input
             type="url"
             className="input flex-1 text-sm"
-            placeholder="URLを貼り付け"
+            placeholder="商品ページのURLを貼り付け"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             disabled={loading}
@@ -203,6 +212,14 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+function extractOgImage(html: string): string {
+  return (
+    html.match(/property="og:image"\s+content="([^"]+)"/)?.[1] ??
+    html.match(/content="([^"]+)"\s+property="og:image"/)?.[1] ??
+    ''
+  )
 }
 
 function extractTextFromHtml(html: string): string {

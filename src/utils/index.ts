@@ -1,4 +1,4 @@
-import type { PriceRecord, PurchasePlan } from '../types'
+import type { PurchasePlan } from '../types'
 
 export function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -41,26 +41,6 @@ export function daysUntil(date: string): number | null {
   const now = new Date()
   const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   return Math.round((target.getTime() - base.getTime()) / 86_400_000)
-}
-
-export interface PriceStats {
-  count: number
-  average: number
-  max: number
-  min: number
-}
-
-/** 価格レコードから平均・最高・最低を算出 */
-export function calcPriceStats(records: PriceRecord[]): PriceStats | null {
-  if (records.length === 0) return null
-  const prices = records.map((r) => r.price)
-  const sum = prices.reduce((a, b) => a + b, 0)
-  return {
-    count: prices.length,
-    average: Math.round(sum / prices.length),
-    max: Math.max(...prices),
-    min: Math.min(...prices),
-  }
 }
 
 export interface MonthlySummary {
