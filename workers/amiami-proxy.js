@@ -4,8 +4,6 @@
  * 【デプロイ手順】
  * 1. https://dash.cloudflare.com/ → Workers → amiami-proxy を開く
  * 2. このファイルの内容で全文置き換えてデプロイ
- *
- * 既存Workerの X-User-Key が不明な場合は既存コードからコピーしてください。
  */
 
 // ===================================================================
@@ -18,14 +16,12 @@ export default {
   async fetch(request) {
     const url = new URL(request.url)
 
-    // すべてのオリジンを許可（GitHub Pages含む）
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Content-Type': 'application/json',
     }
 
-    // CORS プリフライト
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders })
     }
@@ -40,13 +36,15 @@ export default {
       apiUrl.searchParams.set('pagemax', '20')
       apiUrl.searchParams.set('s_keywords', keyword)
       apiUrl.searchParams.set('lang', 'ja')
-      apiUrl.searchParams.set('s_st_list_newitem_available', '1')
 
       const apiRes = await fetch(apiUrl.toString(), {
         headers: {
           'X-User-Key': AMIAMI_USER_KEY,
           'Accept': 'application/json',
+          'Accept-Language': 'ja,en;q=0.9',
           'Referer': 'https://www.amiami.jp/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Origin': 'https://www.amiami.jp',
         },
       })
 
@@ -59,7 +57,6 @@ export default {
       }
 
       const data = await apiRes.json()
-      // AmiAmi は { items: [] } または { RValue: { items: [] } } を返す
       const items = data?.items ?? data?.RValue?.items ?? []
 
       return new Response(JSON.stringify({ items }), { headers: corsHeaders })
