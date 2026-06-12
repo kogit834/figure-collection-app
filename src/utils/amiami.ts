@@ -9,15 +9,16 @@ export async function searchAmiAmiFigures(
   const params = new URLSearchParams({ keyword })
   const res = await fetch(`${WORKER_URL}?${params}`, { signal })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`サーバーエラー (${res.status})${text ? `: ${text.slice(0, 200)}` : ''}`)
+    throw new Error('PROXY_ERROR')
   }
   const json = (await res.json()) as Record<string, unknown>
-  // Support nested format: { RValue: { items: [] } } or flat { items: [] }
+  if (typeof json.error === 'string') {
+    throw new Error(json.error)
+  }
   const nested = json.RValue as Record<string, unknown> | undefined
   const items = (json.items ?? nested?.items ?? json.results ?? []) as AmiAmiItem[]
   if (!Array.isArray(items)) {
-    throw new Error(`予期しないレスポンス形式: ${JSON.stringify(json).slice(0, 300)}`)
+    throw new Error('AMIAMI_ERROR')
   }
   return items
 }

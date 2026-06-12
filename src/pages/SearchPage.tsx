@@ -235,15 +235,23 @@ export function SearchPage({
       )}
 
       {searchState.status === 'error' && (
-        <div className="card space-y-1 p-3">
+        <div className="card space-y-2 p-3">
           <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
-            AmiAmi の検索に失敗しました
+            AmiAmi の検索に接続できませんでした
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 break-all">
-            {searchState.message}
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            下の「他のサイトで探す」から直接検索してください。
+          <a
+            href={EXTERNAL_SOURCES.find((s) => s.id === 'amiami')!.url(searchState.keyword)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 active:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+          >
+            AmiAmi サイトで直接検索する
+            <svg className="h-4 w-4 shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+          </a>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            下の「他のサイトで探す」もお試しください。
           </p>
         </div>
       )}
