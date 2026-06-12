@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import type { Figure, FigureStatus } from '../types'
-import { FIGURE_STATUS_LABELS } from '../types'
+import type { Figure, FigureStatus, PurchasePlan, PurchaseStatus } from '../types'
+import { FIGURE_STATUS_LABELS, PURCHASE_STATUS_LABELS } from '../types'
 import { daysUntil, formatDate, formatYen, newId, today } from '../utils'
 import { Modal } from '../components/Modal'
 import { StatusBadge } from '../components/StatusBadge'
@@ -18,6 +18,8 @@ type Filter = 'all' | FigureStatus
 interface FiguresPageProps {
   figures: Figure[]
   setFigures: (update: (prev: Figure[]) => Figure[]) => void
+  plans: PurchasePlan[]
+  setPlans: (update: (prev: PurchasePlan[]) => PurchasePlan[]) => void
 }
 
 interface FormState {
@@ -42,7 +44,7 @@ const EMPTY_FORM: FormState = {
   status: 'upcoming',
 }
 
-export function FiguresPage({ figures, setFigures }: FiguresPageProps) {
+export function FiguresPage({ figures, setFigures, plans, setPlans }: FiguresPageProps) {
   const [filter, setFilter] = useState<Filter>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -51,13 +53,17 @@ export function FiguresPage({ figures, setFigures }: FiguresPageProps) {
   const visibleFigures = useMemo(() => {
     const filtered =
       filter === 'all' ? figures : figures.filter((f) => f.status === filter)
-    // 発売日が近い順（日付未定は末尾）
     return [...filtered].sort((a, b) => {
       if (!a.releaseDate) return 1
       if (!b.releaseDate) return -1
       return a.releaseDate.localeCompare(b.releaseDate)
     })
   }, [figures, filter])
+
+  const planByFigure = useMemo(
+    () => new Map(plans.filter((p) => p.figureId).map((p) => [p.figureId!, p])),
+    [plans],
+  )
 
   const openAdd = () => {
     setEditingId(null)
@@ -111,6 +117,40 @@ export function FiguresPage({ figures, setFigures }: FiguresPageProps) {
     setFigures((prev) => prev.filter((f) => f.id !== figure.id))
   }
 
+  const handlePlanStatus = (figure: Figure, status: PurchaseStatus) => {
+    const existing = planByFigure.get(figure.id)
+    if (existing) {
+      if (existing.status === status) return
+      setPlans((prev) =>
+        prev.map((p) =>
+          p.id === existing.id
+            ? {
+                ...p,
+                status,
+                purchaseDate:
+                  status === 'purchased' && !p.purchaseDate ? today() : p.purchaseDate,
+              }
+            : p,
+        ),
+      )
+    } else {
+      setPlans((prev) => [
+        ...prev,
+        {
+          id: newId(),
+          figureId: figure.id,
+          name: figure.name,
+          status,
+          purchaseDate: status === 'purchased' ? today() : '',
+          purchasePrice: null,
+          purchasePlace: '',
+          memo: '',
+          createdAt: today(),
+        },
+      ])
+    }
+  }
+
   const set = (patch: Partial<FormState>) =>
     setForm((prev) => ({ ...prev, ...patch }))
 
@@ -149,6 +189,7 @@ export function FiguresPage({ figures, setFigures }: FiguresPageProps) {
         <ul className="space-y-3">
           {visibleFigures.map((figure) => {
             const days = daysUntil(figure.releaseDate)
+            const plan = planByFigure.get(figure.id)
             return (
               <li key={figure.id} className="card overflow-hidden">
                 <div className="flex gap-3 p-3">
@@ -204,6 +245,28 @@ export function FiguresPage({ figures, setFigures }: FiguresPageProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* 購入予定ステータス */}
+                <div className="flex items-center gap-2 border-t border-slate-200 px-3 py-2 dark:border-slate-800">
+                  <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">購入:</span>
+                  <div className="flex gap-1.5 overflow-x-auto">
+                    {(Object.keys(PURCHASE_STATUS_LABELS) as PurchaseStatus[]).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => handlePlanStatus(figure, status)}
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
+                          plan?.status === status
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        {PURCHASE_STATUS_LABELS[status]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex divide-x divide-slate-200 border-t border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">
                   <button
                     type="button"
@@ -232,20 +295,20 @@ export function FiguresPage({ figures, setFigures }: FiguresPageProps) {
         onClose={() => setModalOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-3">
-          {!editingId && (
-            <SnsImport
-              onExtract={(data) => {
-                setForm((prev) => ({
-                  ...prev,
-                  ...(data.name ? { name: data.name } : {}),
-                  ...(data.series ? { series: data.series } : {}),
-                  ...(data.releaseDate ? { releaseDate: data.releaseDate } : {}),
-                  ...(data.price ? { price: data.price } : {}),
-                  ...(data.manufacturer ? { manufacturer: data.manufacturer } : {}),
-                }))
-              }}
-            />
-          )}
+          <SnsImport
+            onExtract={(data) => {
+              setForm((prev) => ({
+                ...prev,
+                ...(data.name ? { name: data.name } : {}),
+                ...(data.series ? { series: data.series } : {}),
+                ...(data.releaseDate ? { releaseDate: data.releaseDate } : {}),
+                ...(data.price ? { price: data.price } : {}),
+                ...(data.manufacturer ? { manufacturer: data.manufacturer } : {}),
+                ...(data.scale ? { scale: data.scale } : {}),
+                ...(data.imageUrl ? { imageUrl: data.imageUrl } : {}),
+              }))
+            }}
+          />
           <div>
             <label className="label" htmlFor="fig-name">商品名 *</label>
             <input

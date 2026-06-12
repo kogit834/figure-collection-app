@@ -51,24 +51,6 @@ export interface PurchasePlan {
   createdAt: string
 }
 
-/** フリマプラットフォーム */
-export type Platform = 'mercari' | 'yahoo' | 'rakuma' | 'other'
-
-export const PLATFORM_LABELS: Record<Platform, string> = {
-  mercari: 'メルカリ',
-  yahoo: 'ヤフオク',
-  rakuma: 'ラクマ',
-  other: 'その他',
-}
-
-/** 商品の状態 */
-export const CONDITION_OPTIONS = [
-  '新品・未開封',
-  '開封済み・美品',
-  '中古',
-  'ジャンク',
-] as const
-
 /** 好きな作品ジャンル */
 export type WorkType = 'anime' | 'manga' | 'game' | 'other'
 
@@ -87,6 +69,13 @@ export interface FavoriteWork {
   createdAt: string
 }
 
+/** 好きな商品シリーズ */
+export interface FavoriteSeries {
+  id: string
+  name: string
+  createdAt: string
+}
+
 /** AmiAmi API のレスポンス商品アイテム */
 export interface AmiAmiItem {
   gcode: string
@@ -96,19 +85,4 @@ export interface AmiAmiItem {
   releasedate?: string
   min_price?: number
   thumb_url?: string
-}
-
-/** フリマ価格調査メモ */
-export interface PriceRecord {
-  id: string
-  figureId: string
-  /** YYYY-MM-DD */
-  surveyDate: string
-  platform: Platform
-  /** platform が other の場合のプラットフォーム名 */
-  platformOther: string
-  price: number
-  condition: string
-  url: string
-  createdAt: string
 }
