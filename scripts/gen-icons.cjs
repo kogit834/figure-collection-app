@@ -1,10 +1,11 @@
 // PWAアイコン（PNG）を依存ライブラリなしで生成する。
-// インディゴ背景に白のフィギュアシルエット（頭＋胴体＋台座）を描画する。
+// ピンク→パープルのグラデーション背景に白の美少女フィギュアシルエットを描画する。
 const fs = require('node:fs')
 const path = require('node:path')
 const zlib = require('node:zlib')
 
-const BG = [79, 70, 229] // indigo-600
+const BG_TOP = [219, 39, 119]  // pink-600
+const BG_BOT = [76, 29, 149]   // purple-900
 const FG = [255, 255, 255]
 
 function crc32(buf) {
@@ -25,22 +26,51 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc])
 }
 
-function drawPixel(size, x, y) {
-  // 正規化座標 (0..1)
-  const u = x / size
-  const v = y / size
-  // 頭（円）
-  const dx = u - 0.5
-  const dyHead = v - 0.32
-  if (dx * dx + dyHead * dyHead < 0.012) return true
-  // 胴体（台形っぽい縦長楕円）
-  const dyBody = (v - 0.58) / 0.16
-  const dxBody = dx / (0.09 + 0.04 * Math.max(0, Math.min(1, (v - 0.42) / 0.3)))
-  if (v > 0.42 && v < 0.74 && dxBody * dxBody + dyBody * dyBody < 1) return true
-  // 台座（角丸の横長楕円）
-  const dyBase = (v - 0.8) / 0.035
-  const dxBase = dx / 0.2
-  if (dxBase * dxBase + dyBase * dyBase < 1) return true
+function isFigure(u, v) {
+  function ellipse(cx, cy, rx, ry) {
+    const dx = (u - cx) / rx
+    const dy = (v - cy) / ry
+    return dx * dx + dy * dy < 1
+  }
+  function rect(x0, y0, x1, y1) {
+    return u > x0 && u < x1 && v > y0 && v < y1
+  }
+
+  // 髪（頭頂部ボリューム）
+  if (ellipse(0.500, 0.148, 0.158, 0.112)) return true
+  // 左ツインテール
+  if (ellipse(0.352, 0.278, 0.053, 0.126)) return true
+  // 右ツインテール
+  if (ellipse(0.648, 0.278, 0.053, 0.126)) return true
+  // 頭部
+  if (ellipse(0.500, 0.222, 0.091, 0.091)) return true
+  // 首
+  if (rect(0.467, 0.308, 0.533, 0.346)) return true
+  // 肩・胸
+  if (ellipse(0.500, 0.378, 0.133, 0.068)) return true
+  // 胴体上部
+  if (rect(0.444, 0.346, 0.556, 0.440)) return true
+  // 腰（くびれ）
+  if (rect(0.458, 0.440, 0.542, 0.508)) return true
+  // ヒップ
+  if (ellipse(0.500, 0.510, 0.153, 0.053)) return true
+  // スカート（A字フレア）
+  if (v > 0.504 && v < 0.762) {
+    const t = (v - 0.504) / 0.258
+    const hw = 0.116 + t * 0.163
+    if (Math.abs(u - 0.5) < hw) return true
+  }
+  // 左脚
+  if (rect(0.432, 0.760, 0.483, 0.876)) return true
+  // 右脚
+  if (rect(0.517, 0.760, 0.568, 0.876)) return true
+  // 左足先
+  if (ellipse(0.455, 0.884, 0.040, 0.016)) return true
+  // 右足先
+  if (ellipse(0.545, 0.884, 0.040, 0.016)) return true
+  // 台座
+  if (ellipse(0.500, 0.924, 0.200, 0.036)) return true
+
   return false
 }
 
@@ -48,19 +78,30 @@ function makePng(size) {
   const raw = Buffer.alloc(size * (size * 3 + 1))
   let offset = 0
   for (let y = 0; y < size; y++) {
-    raw[offset++] = 0 // filter: none
+    raw[offset++] = 0
+    const t = y / (size - 1)
+    const bgR = Math.round(BG_TOP[0] + t * (BG_BOT[0] - BG_TOP[0]))
+    const bgG = Math.round(BG_TOP[1] + t * (BG_BOT[1] - BG_TOP[1]))
+    const bgB = Math.round(BG_TOP[2] + t * (BG_BOT[2] - BG_TOP[2]))
     for (let x = 0; x < size; x++) {
-      const [r, g, b] = drawPixel(size, x, y) ? FG : BG
-      raw[offset++] = r
-      raw[offset++] = g
-      raw[offset++] = b
+      const u = (x + 0.5) / size
+      const v = (y + 0.5) / size
+      if (isFigure(u, v)) {
+        raw[offset++] = FG[0]
+        raw[offset++] = FG[1]
+        raw[offset++] = FG[2]
+      } else {
+        raw[offset++] = bgR
+        raw[offset++] = bgG
+        raw[offset++] = bgB
+      }
     }
   }
   const ihdr = Buffer.alloc(13)
   ihdr.writeUInt32BE(size, 0)
   ihdr.writeUInt32BE(size, 4)
-  ihdr[8] = 8 // bit depth
-  ihdr[9] = 2 // color type: RGB
+  ihdr[8] = 8
+  ihdr[9] = 2
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk('IHDR', ihdr),
