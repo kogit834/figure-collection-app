@@ -19,12 +19,36 @@ const WORK_TYPE_COLORS: Record<WorkType, string> = {
   other: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
 }
 
+const GUIDE_STEPS = [
+  {
+    step: 1,
+    title: '発売情報をスクショしよう',
+    body: 'SNSやメーカーサイトで気になるフィギュアを見つけたら、まず画像をスクリーンショット。',
+  },
+  {
+    step: 2,
+    title: '発売情報タブの「＋ 追加」から登録',
+    body: '「発売情報」タブを開いて「＋ 追加」をタップ。商品名・発売日・画像URLを入力して保存しよう。',
+  },
+  {
+    step: 3,
+    title: '予約したら「予約済み」に切り替えよう',
+    body: 'ショップで予約が完了したら、購入予定リストのステータスを「予約済み」に変更しておこう。',
+  },
+  {
+    step: 4,
+    title: '購入予定とカレンダーでもれなく管理',
+    body: '「購入予定」タブで月別の出費を確認、「カレンダー」タブで発売日を一目でチェック。買い逃し・買いすぎを防ごう！',
+  },
+]
+
 export function SettingsPage({
   works,
   setWorks,
   favoriteSeries,
   setFavoriteSeries,
 }: SettingsPageProps) {
+  const [guideOpen, setGuideOpen] = useState(false)
   const [workModalOpen, setWorkModalOpen] = useState(false)
   const [seriesModalOpen, setSeriesModalOpen] = useState(false)
   const [workTitle, setWorkTitle] = useState('')
@@ -66,6 +90,41 @@ export function SettingsPage({
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold">設定</h1>
+
+      {/* 使い方ガイド */}
+      <section className="card overflow-hidden p-0">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+          onClick={() => setGuideOpen((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-base">📖</span>
+            <span className="font-semibold">使い方ガイド</span>
+          </div>
+          <span
+            className="text-slate-400 transition-transform duration-200"
+            style={{ display: 'inline-block', transform: guideOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          >
+            ▾
+          </span>
+        </button>
+        {guideOpen && (
+          <ol className="divide-y divide-slate-100 dark:divide-slate-700">
+            {GUIDE_STEPS.map(({ step, title, body }) => (
+              <li key={step} className="flex gap-3 px-4 py-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
+                  {step}
+                </span>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold leading-snug">{title}</p>
+                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
 
       {/* 好きな作品 */}
       <section className="space-y-3">
